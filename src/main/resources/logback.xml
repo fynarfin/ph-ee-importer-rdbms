@@ -28,9 +28,9 @@
 
     <logger name="com" level="INFO"/>
     <logger name="org" level="INFO"/>
-    <logger name="org.eclipse.persistence" level="DEBUG"/>
+    <logger name="org.eclipse.persistence" level="INFO"/>
     <logger name="io" level="INFO"/>
-    <logger name="org.springframework.transaction" level="DEBUG"/>
+    <logger name="org.springframework.transaction" level="INFO"/>
     <logger name="cloud.alluvial" level="INFO"/>
     <logger name="org.apache.kafka.streams.processor.internals" level="WARN"/>
 
