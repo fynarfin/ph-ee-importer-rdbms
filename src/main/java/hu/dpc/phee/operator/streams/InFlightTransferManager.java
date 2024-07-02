@@ -51,7 +51,7 @@ public class InFlightTransferManager {
             }
         });
 
-        optionalTransfer.ifPresent(t -> logger.info("Found existing Transfer for processInstanceKey: {}", processInstanceKey));
+        optionalTransfer.ifPresent(t -> logger.debug("Found existing Transfer for processInstanceKey: {}", processInstanceKey));
 
         return transfer;
     }

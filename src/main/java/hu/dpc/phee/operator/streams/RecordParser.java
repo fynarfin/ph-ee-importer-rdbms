@@ -80,7 +80,7 @@ public class RecordParser {
 
     @Transactional
     public List<Object> processWorkflowInstance(DocumentContext recordDocument, String bpmn, Long workflowInstanceKey, Long timestamp, String bpmnElementType, String elementId, String flowType, DocumentContext sample) {
-        logger.info("Processing workflow instance");
+        logger.debug("Processing workflow instance");
         String recordType = recordDocument.read("$.recordType", String.class);
         String intent = recordDocument.read("$.intent", String.class);
         Optional<TransferTransformerConfig.Flow> config = transferTransformerConfig.findFlow(bpmn);
@@ -92,14 +92,14 @@ public class RecordParser {
                 .toList();
 
         if ("TRANSFER".equalsIgnoreCase(flowType)) {
-            logger.info("Processing flow of type TRANSFER");
+            logger.debug("Processing flow of type TRANSFER");
             Transfer transfer = inFlightTransferManager.retrieveOrCreateTransfer(bpmn, sample, "PROCESS_INSTANCE");
             if ("EVENT".equals(recordType) && "START_EVENT".equals(bpmnElementType) && "ELEMENT_ACTIVATED".equals(intent)) {
                 transfer.setStartedAt(new Date(timestamp));
                 transfer.setDirection(config.get().getDirection());
                 logger.debug("found {} constant transformers for flow start {}", constantTransformers.size(), bpmn);
             } else if ("EVENT".equals(recordType) && "END_EVENT".equals(bpmnElementType) && "ELEMENT_COMPLETED".equals(intent)) {
-                logger.info("finishing transfer for processInstanceKey: {} at elementId: {}", workflowInstanceKey, elementId);
+                logger.debug("finishing transfer for processInstanceKey: {} at elementId: {}", workflowInstanceKey, elementId);
                 transfer.setCompletedAt(new Date(timestamp));
                 if (StringUtils.isNotEmpty(elementId) && elementId.contains("Failed")) {
                     transfer.setStatus(TransferStatus.FAILED);
@@ -110,14 +110,14 @@ public class RecordParser {
             constantTransformers.forEach(it -> applyTransformer(transfer, null, null, it));
             transferRepository.save(transfer);
         } else if ("TRANSACTION-REQUEST".equalsIgnoreCase(flowType)) {
-            logger.info("Processing flow of type TRANSACTION");
+            logger.debug("Processing flow of type TRANSACTION");
             TransactionRequest transactionRequest = inflightTransactionRequestManager.retrieveOrCreateTransaction(bpmn, sample);
             if ("ELEMENT_ACTIVATING".equals(intent)) {
                 transactionRequest.setStartedAt(new Date(timestamp));
                 transactionRequest.setDirection(config.get().getDirection());
                 logger.debug("found {} constant transformers for flow start {}", constantTransformers.size(), bpmn);
             } else if ("ELEMENT_COMPLETED".equals(intent)) {
-                logger.info("finishing transaction for processInstanceKey: {} at elementId: {}", workflowInstanceKey, elementId);
+                logger.debug("finishing transaction for processInstanceKey: {} at elementId: {}", workflowInstanceKey, elementId);
                 transactionRequest.setCompletedAt(new Date(timestamp));
                 if(!config.get().getName().contains("bill_request")) {
                     if (StringUtils.isNotEmpty(elementId) && elementId.contains("Failed")) {
@@ -130,15 +130,15 @@ public class RecordParser {
             constantTransformers.forEach(it -> applyTransformer(transactionRequest, null, null, it));
             transactionRequestRepository.save(transactionRequest);
         } else if ("BATCH".equalsIgnoreCase(flowType)) {
-            logger.info("Processing flow of type BATCH");
+            logger.debug("Processing flow of type BATCH");
             Batch batch = inflightBatchManager.retrieveOrCreateBatch(bpmn, sample);
             if ("ELEMENT_ACTIVATING".equals(intent)) {
                 batch.setStartedAt(new Date(timestamp));
                 logger.debug("found {} constant transformers for flow start {}", constantTransformers.size(), bpmn);
             } else if ("ELEMENT_COMPLETED".equals(intent)) {
-                logger.info("Inside ELEMENT_COMPLETED");
+                logger.debug("Inside ELEMENT_COMPLETED");
               //  if (!config.get().getName().contains("bulk_processor")) {
-                    logger.info("Inside if condition PROCESS_INSTANCE, json {}", recordType);
+                    logger.debug("Inside if condition PROCESS_INSTANCE, json {}", recordType);
                     inflightBatchManager.checkWorkerIdAndUpdateTransferData(batch, workflowInstanceKey, timestamp);
              //   }
                 batch.setCompletedAt(new Date(timestamp));
@@ -146,7 +146,7 @@ public class RecordParser {
             constantTransformers.forEach(it -> applyTransformer(batch, null, null, it));
             batchRepository.save(batch);
         } else if ("OUTBOUND_MESSAGES".equalsIgnoreCase(flowType)) {
-            logger.info("Processing flow of type OUTBOUND MESSAGES");
+            logger.debug("Processing flow of type OUTBOUND MESSAGES");
             OutboudMessages outboudMessages = inflightOutboundMessageManager.retrieveOrCreateOutboundMessage(bpmn, recordDocument);
             if ("ELEMENT_ACTIVATING".equals(intent)) {
                 outboudMessages.setSubmittedOnDate(new Date(timestamp));
@@ -176,7 +176,7 @@ public class RecordParser {
     }
 
     public List<Object> processVariable(DocumentContext recordDocument, String bpmn, Long workflowInstanceKey, Long workflowKey, Long timestamp, String flowType, DocumentContext sample)throws JsonProcessingException {
-        logger.info("Processing variable instance");
+        logger.debug("Processing variable instance");
         String variableName = recordDocument.read("$.value.name", String.class);
         String variableValue = recordDocument.read("$.value.value", String.class);
         String value = variableValue.startsWith("\"") && variableValue.endsWith("\"") ? StringEscapeUtils.unescapeJson(variableValue.substring(1, variableValue.length() - 1)) : variableValue;
@@ -195,12 +195,12 @@ public class RecordParser {
 
         if (variableName.equals("failedTransactionFile")) {
             // insert the transaction into transfer table
-            logger.info("Name {} and value: {}");
+            logger.debug("Name {} and value: {}");
             inflightBatchManager.updateTransferTableWithFailedTransaction(workflowInstanceKey, value);
         }
 
         if (variableName.equals("batchId")) {
-            logger.info("store batchid {} in tempDocStore for instance {}", strip(value), workflowInstanceKey);
+            logger.debug("store batchid {} in tempDocStore for instance {}", strip(value), workflowInstanceKey);
             inflightBatchManager.storeBatchId(workflowInstanceKey, value);
         }
 
@@ -235,13 +235,13 @@ public class RecordParser {
             matchingTransformers.forEach(transformer -> applyTransformer(batch, variableName, value, transformer));
             batchRepository.save(batch);
             //if (!config.get().getName().equalsIgnoreCase("bulk_processor")) {
-                logger.info("Inside if condition {}", variableName);
+                logger.debug("Inside if condition {}", variableName);
                 if (variableName.equals("filename")) {
-                    logger.info("store filename {} in tempDocStore for instance {}", strip(value), workflowInstanceKey);
+                    logger.debug("store filename {} in tempDocStore for instance {}", strip(value), workflowInstanceKey);
                     inflightBatchManager.storeBatchFileName(workflowInstanceKey, value);
                 }
                 if (variableName.equals("batchId")) {
-                    logger.info("store batchid {} in tempDocStore for instance {}", strip(value), workflowInstanceKey);
+                    logger.debug("store batchid {} in tempDocStore for instance {}", strip(value), workflowInstanceKey);
                     inflightBatchManager.storeBatchId(workflowInstanceKey, value);
                 }
             //}
@@ -255,7 +255,7 @@ public class RecordParser {
     }
 
     public List<Object> processTask(DocumentContext recordDocument, Long workflowInstanceKey, String valueType, Long workflowKey, Long timestamp) {
-        logger.info("Processing task instance");
+        logger.debug("Processing task instance");
         return List.of(
                 new Task()
                         .withWorkflowInstanceKey(workflowInstanceKey)
@@ -270,14 +270,14 @@ public class RecordParser {
 
     @Transactional
     public List<Object> processIncident(Long timestamp, String flowType, String bpmn, DocumentContext sample, Long workflowInstanceKey) {
-        logger.info("Processing incident instance");
+        logger.debug("Processing incident instance");
         if ("TRANSFER".equalsIgnoreCase(flowType)) {
             Transfer transfer = inFlightTransferManager.retrieveOrCreateTransfer(bpmn, sample, "INCIDENT");
             //Skipping dummy transfer cases
             if(transfer.getWorkflowInstanceKey().equals(0L) || transfer.getErrorInformation().equals("404")) {
-                logger.info("Inside dummy fail case ------------------------------------------------------ ");
+                logger.debug("Inside dummy fail case ------------------------------------------------------ ");
             } else {
-                logger.info("failing Transfer {} based on incident event", transfer.getTransactionId());
+                logger.debug("failing Transfer {} based on incident event", transfer.getTransactionId());
                 transfer.setStatus(TransferStatus.EXCEPTION);
                 transfer.setCompletedAt(new Date(timestamp));
                 transferRepository.save(transfer);
@@ -361,7 +361,7 @@ public class RecordParser {
     private void processJsonObject(JsonNode jsonNode, TransferTransformerConfig.Transformer transformer, Object object, String fieldName, String variableName, String variableValue) {
         DocumentContext document = JsonPath.parse(jsonNode.toString());
         Object result = document.read(transformer.getJsonPath());
-        logger.info("Results:{}",result);
+        logger.debug("Results:{}",result);
 
         String value = null;
         if (result != null) {
@@ -385,7 +385,7 @@ public class RecordParser {
     public void parseSubBatchDetails(String jsonString) throws JsonProcessingException {
         ObjectMapper objectMapper = new ObjectMapper();
         List<Batch> batches = Arrays.asList(objectMapper.readValue(jsonString, Batch[].class));
-        logger.info("Inside parseSubBatchDetails batch size - {}", batches.size());
+        logger.debug("Inside parseSubBatchDetails batch size - {}", batches.size());
         for (Batch bt : batches) {
             Optional<Batch> existingBatchOpt = batchRepository.findBySubBatchId(bt.getSubBatchId());
 
