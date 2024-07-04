@@ -83,6 +83,11 @@ public class RecordParser {
         logger.debug("Processing workflow instance");
         String recordType = recordDocument.read("$.recordType", String.class);
         String intent = recordDocument.read("$.intent", String.class);
+
+        if (!"START_EVENT".equals(bpmnElementType) && !"END_EVENT".equals(bpmnElementType)) {
+            return List.of();
+        }
+
         Optional<TransferTransformerConfig.Flow> config = transferTransformerConfig.findFlow(bpmn);
         logger.debug("Inside processWorkflowInstance recordDocument {}", recordDocument);
         List<TransferTransformerConfig.Transformer> constantTransformers = transferTransformerConfig.getFlows().stream()
