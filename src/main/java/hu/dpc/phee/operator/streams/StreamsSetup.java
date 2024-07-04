@@ -179,9 +179,9 @@ public class StreamsSetup {
                                 yield recordParser.processTask(recordDocument, workflowInstanceKey, valueType, workflowKey, timestamp);
                             }
 
-                            case "VARIABLE" -> {
-                                yield recordParser.processVariable(recordDocument, bpmn, workflowInstanceKey, workflowKey, timestamp, flowType, sample);
-                            }
+//                            case "VARIABLE" -> {
+//                                yield recordParser.processVariable(recordDocument, bpmn, workflowInstanceKey, workflowKey, timestamp, flowType, sample);
+//                            }
 
                             case "INCIDENT" -> {
                                 yield recordParser.processIncident(timestamp, flowType, bpmn, sample, workflowInstanceKey);
