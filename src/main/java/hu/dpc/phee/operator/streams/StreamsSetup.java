@@ -1,6 +1,7 @@
 package hu.dpc.phee.operator.streams;
 
 import com.jayway.jsonpath.DocumentContext;
+import hu.dpc.phee.operator.config.AncillaryConfig;
 import hu.dpc.phee.operator.config.TransferTransformerConfig;
 import hu.dpc.phee.operator.entity.ancillary.TimestampRepository;
 import hu.dpc.phee.operator.entity.ancillary.Timestamps;
@@ -93,6 +94,8 @@ public class StreamsSetup {
     @Autowired
     private TimestampRepository timestampRepository;
 
+    @Autowired AncillaryConfig ancillaryConfig;
+
 
     @PostConstruct
     public void setup() {
@@ -156,7 +159,9 @@ public class StreamsSetup {
                 for (String record : records) {
                     try {
                         DocumentContext recordDocument = JsonPathReader.parse(record);
-                        logToTimestampsTable(recordDocument);
+                        if (ancillaryConfig.enableTimestampsDump.equals("true")) {
+                            logToTimestampsTable(recordDocument);
+                        }
                         logger.debug("from kafka: {}", recordDocument.jsonString());
 
                         String valueType = recordDocument.read("$.valueType", String.class);
@@ -179,9 +184,9 @@ public class StreamsSetup {
                                 yield recordParser.processTask(recordDocument, workflowInstanceKey, valueType, workflowKey, timestamp);
                             }
 
-//                            case "VARIABLE" -> {
-//                                yield recordParser.processVariable(recordDocument, bpmn, workflowInstanceKey, workflowKey, timestamp, flowType, sample);
-//                            }
+                            case "VARIABLE" -> {
+                                yield recordParser.processVariable(recordDocument, bpmn, workflowInstanceKey, workflowKey, timestamp, flowType, sample);
+                            }
 
                             case "INCIDENT" -> {
                                 yield recordParser.processIncident(timestamp, flowType, bpmn, sample, workflowInstanceKey);
