@@ -3,8 +3,8 @@ package hu.dpc.phee.operator.streams;
 import com.jayway.jsonpath.DocumentContext;
 import hu.dpc.phee.operator.config.AncillaryConfig;
 import hu.dpc.phee.operator.config.TransferTransformerConfig;
-import hu.dpc.phee.operator.entity.ancillary.TimestampRepository;
-import hu.dpc.phee.operator.entity.ancillary.Timestamps;
+import hu.dpc.phee.operator.entity.analytics.EventTimestampsRepository;
+import hu.dpc.phee.operator.entity.analytics.EventTimestamps;
 import hu.dpc.phee.operator.entity.batch.BatchRepository;
 import hu.dpc.phee.operator.entity.outboundmessages.OutboundMessagesRepository;
 import hu.dpc.phee.operator.entity.task.Task;
@@ -92,7 +92,7 @@ public class StreamsSetup {
     TaskRepository taskRepository;
 
     @Autowired
-    private TimestampRepository timestampRepository;
+    private EventTimestampsRepository eventTimestampsRepository;
 
     @Autowired AncillaryConfig ancillaryConfig;
 
@@ -249,12 +249,12 @@ public class StreamsSetup {
 
     public void logToTimestampsTable(DocumentContext incomingRecord) {
         try{
-            Timestamps timestamps = new Timestamps();
-            timestamps.setWorkflowInstanceKey(incomingRecord.read("$.value.processInstanceKey"));
-            timestamps.setExportedTime(incomingRecord.read("$.exportedTime"));
-            timestamps.setImportedTime(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZZ").format(new Date()));
-            timestamps.setZeebeTime(incomingRecord.read("$.timestamp").toString());
-            timestampRepository.save(timestamps);
+            EventTimestamps eventTimestamps = new EventTimestamps();
+            eventTimestamps.setWorkflowInstanceKey(incomingRecord.read("$.value.processInstanceKey"));
+            eventTimestamps.setExportedTime(incomingRecord.read("$.exportedTime"));
+            eventTimestamps.setImportedTime(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZZ").format(new Date()));
+            eventTimestamps.setZeebeTime(incomingRecord.read("$.timestamp").toString());
+            eventTimestampsRepository.save(eventTimestamps);
         }catch (Exception e) {
             logger.debug(e.getMessage().toString() + " Error parsing record");
         }

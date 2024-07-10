@@ -1,4 +1,4 @@
-package hu.dpc.phee.operator.entity.ancillary;
+package hu.dpc.phee.operator.entity.analytics;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -10,10 +10,10 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "timestamps")
+@Table(name = "event_timestamps")
 @Getter
 @Setter
-public class Timestamps {
+public class EventTimestamps {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
