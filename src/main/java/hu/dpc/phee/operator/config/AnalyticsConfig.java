@@ -4,8 +4,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-public class AncillaryConfig {
+public class AnalyticsConfig {
 
     @Value("${reliability.events-timestamps-dump-enabled}")
-    public String enableTimestampsDump;
+    public String enableEventsTimestampsDump;
 }

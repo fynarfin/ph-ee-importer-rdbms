@@ -1,7 +1,7 @@
 package hu.dpc.phee.operator.streams;
 
 import com.jayway.jsonpath.DocumentContext;
-import hu.dpc.phee.operator.config.AncillaryConfig;
+import hu.dpc.phee.operator.config.AnalyticsConfig;
 import hu.dpc.phee.operator.config.TransferTransformerConfig;
 import hu.dpc.phee.operator.entity.analytics.EventTimestampsRepository;
 import hu.dpc.phee.operator.entity.analytics.EventTimestamps;
@@ -94,7 +94,7 @@ public class StreamsSetup {
     @Autowired
     private EventTimestampsRepository eventTimestampsRepository;
 
-    @Autowired AncillaryConfig ancillaryConfig;
+    @Autowired AnalyticsConfig analyticsConfig;
 
 
     @PostConstruct
@@ -159,7 +159,7 @@ public class StreamsSetup {
                 for (String record : records) {
                     try {
                         DocumentContext recordDocument = JsonPathReader.parse(record);
-                        if (ancillaryConfig.enableTimestampsDump.equals("true")) {
+                        if (analyticsConfig.enableEventsTimestampsDump.equals("true")) {
                             logToTimestampsTable(recordDocument);
                         }
                         logger.debug("from kafka: {}", recordDocument.jsonString());
