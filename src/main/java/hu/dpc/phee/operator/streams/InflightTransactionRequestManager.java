@@ -39,7 +39,7 @@ public class InflightTransactionRequestManager {
             }
             transactionRequestRepository.save(transactionRequest);
         } else {
-            logger.info("found existing Transaction for processInstanceKey: {}", processInstanceKey);
+            logger.debug("found existing Transaction for processInstanceKey: {}", processInstanceKey);
         }
         return transactionRequest;
     }

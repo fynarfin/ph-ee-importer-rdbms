@@ -1,7 +1,10 @@
 package hu.dpc.phee.operator.streams;
 
 import com.jayway.jsonpath.DocumentContext;
+import hu.dpc.phee.operator.config.AnalyticsConfig;
 import hu.dpc.phee.operator.config.TransferTransformerConfig;
+import hu.dpc.phee.operator.entity.analytics.EventTimestampsRepository;
+import hu.dpc.phee.operator.entity.analytics.EventTimestamps;
 import hu.dpc.phee.operator.entity.batch.BatchRepository;
 import hu.dpc.phee.operator.entity.outboundmessages.OutboundMessagesRepository;
 import hu.dpc.phee.operator.entity.task.Task;
@@ -32,9 +35,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.sql.DataSource;
+import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -86,10 +91,15 @@ public class StreamsSetup {
     @Autowired
     TaskRepository taskRepository;
 
+    @Autowired
+    private EventTimestampsRepository eventTimestampsRepository;
+
+    @Autowired AnalyticsConfig analyticsConfig;
+
 
     @PostConstruct
     public void setup() {
-        logger.info("## setting up kafka streams on topic `{}`, aggregating every {} seconds", kafkaTopic, aggregationWindowSeconds);
+        logger.debug("## setting up kafka streams on topic `{}`, aggregating every {} seconds", kafkaTopic, aggregationWindowSeconds);
         Aggregator<String, String, List<String>> aggregator = (key, value, aggregate) -> {
             aggregate.add(value);
             return aggregate;
@@ -143,23 +153,26 @@ public class StreamsSetup {
             Optional<TransferTransformerConfig.Flow> config = transferTransformerConfig.findFlow(bpmn);
             String flowType = getTypeForFlow(config);
 
-            logger.info("processing key: {}, records: {}", key, records);
+            logger.debug("processing key: {}, records: {}", key, records);
 
             transactionTemplate.executeWithoutResult(status -> {
                 for (String record : records) {
                     try {
                         DocumentContext recordDocument = JsonPathReader.parse(record);
-                        logger.info("from kafka: {}", recordDocument.jsonString());
+                        if (analyticsConfig.enableEventsTimestampsDump.equals("true")) {
+                            logToTimestampsTable(recordDocument);
+                        }
+                        logger.debug("from kafka: {}", recordDocument.jsonString());
 
                         String valueType = recordDocument.read("$.valueType", String.class);
-                        logger.info("processing {} event", valueType);
+                        logger.debug("processing {} event", valueType);
 
                         Long workflowKey = recordDocument.read("$.value.processDefinitionKey");
                         Long workflowInstanceKey = recordDocument.read("$.value.processInstanceKey");
                         Long timestamp = recordDocument.read("$.timestamp");
                         String bpmnElementType = recordDocument.read("$.value.bpmnElementType");
                         String elementId = recordDocument.read("$.value.elementId");
-                        logger.info("Processing document of type {}", valueType);
+                        logger.debug("Processing document of type {}", valueType);
 
                         List<Object> entities = switch (valueType) {
                             case "DEPLOYMENT", "VARIABLE_DOCUMENT", "WORKFLOW_INSTANCE" -> List.of();
@@ -182,7 +195,7 @@ public class StreamsSetup {
                             default -> throw new IllegalStateException("Unexpected event type: " + valueType);
                         };
                         if (entities.size() != 0) {
-                            logger.info("Saving {} entities", entities.size());
+                            logger.debug("Saving {} entities", entities.size());
                             entities.forEach(entity -> {
                                 if (entity instanceof Variable) {
                                     variableRepository.save((Variable) entity);
@@ -232,5 +245,18 @@ public class StreamsSetup {
         }
         logger.debug("resolved bpmnProcessIdWithTenant: {}", bpmnProcessIdWithTenant);
         return bpmnProcessIdWithTenant;
+    }
+
+    public void logToTimestampsTable(DocumentContext incomingRecord) {
+        try{
+            EventTimestamps eventTimestamps = new EventTimestamps();
+            eventTimestamps.setWorkflowInstanceKey(incomingRecord.read("$.value.processInstanceKey"));
+            eventTimestamps.setExportedTime(incomingRecord.read("$.exportedTime"));
+            eventTimestamps.setImportedTime(new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZZ").format(new Date()));
+            eventTimestamps.setZeebeTime(incomingRecord.read("$.timestamp").toString());
+            eventTimestampsRepository.save(eventTimestamps);
+        }catch (Exception e) {
+            logger.debug(e.getMessage().toString() + " Error parsing record");
+        }
     }
 }

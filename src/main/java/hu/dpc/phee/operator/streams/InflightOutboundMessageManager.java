@@ -32,7 +32,7 @@ public class InflightOutboundMessageManager {
             OutboudMessages newOutboudMessages = new OutboudMessages(processInstanceKey);
             outboudMessages = outboundMessagesRepository.save(newOutboudMessages);
         } else {
-            logger.info("found existing OutboudMessages for processInstanceKey: {}", processInstanceKey);
+            logger.debug("found existing OutboudMessages for processInstanceKey: {}", processInstanceKey);
         }
 
         return outboudMessages;
