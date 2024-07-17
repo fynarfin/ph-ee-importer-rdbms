@@ -1,5 +1,8 @@
 package hu.dpc.phee.operator.streams;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
 import com.jayway.jsonpath.DocumentContext;
 import hu.dpc.phee.operator.config.AnalyticsConfig;
 import hu.dpc.phee.operator.config.TransferTransformerConfig;
@@ -24,8 +27,7 @@ import org.apache.kafka.streams.kstream.Aggregator;
 import org.apache.kafka.streams.kstream.Consumed;
 import org.apache.kafka.streams.kstream.Materialized;
 import org.apache.kafka.streams.kstream.Merger;
-import org.apache.kafka.streams.kstream.SessionWindows;
-import org.apache.kafka.streams.kstream.Windowed;
+import org.apache.kafka.streams.kstream.TimeWindows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,15 +39,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 import javax.sql.DataSource;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import static org.apache.kafka.common.serialization.Serdes.ListSerde;
 
 @Service
 public class StreamsSetup {
@@ -109,27 +108,48 @@ public class StreamsSetup {
                 .collect(Collectors.toList());
 
         streamsBuilder.stream(kafkaTopic, Consumed.with(STRING_SERDE, STRING_SERDE))
-                .groupByKey()
-                .windowedBy(SessionWindows.ofInactivityGapAndGrace(Duration.ofSeconds(aggregationWindowSeconds), Duration.ZERO))
-                .aggregate(ArrayList::new, aggregator, merger, Materialized.with(STRING_SERDE, ListSerde(ArrayList.class, STRING_SERDE)))
+                .groupBy((key, value) -> extractCompositeKey(value))
+                .windowedBy(TimeWindows.of(Duration.ofMillis(100)).grace(Duration.ofMillis(100)))
+                .aggregate(
+                    JsonArray::new,
+                    (key, value, aggregate) -> {
+                        aggregate.add(JsonParser.parseString(value));
+                        return aggregate;
+                    },
+                    Materialized.with(Serdes.String(), new JsonArraySerde())
+                )
                 .toStream()
-                .foreach(this::process);
+                .foreach((windowedKey, batch) -> {
+                    String compositeKey = windowedKey.key();
+                    process(compositeKey, batch);
+                });
 
         // TODO kafka-ba kell leirni a vegen az entitaslistat, nem DB-be, hogy konzisztens es ujrajatszhato legyen !!
     }
 
     public void process(Object _key, Object _value) {
-        Windowed<String> key = (Windowed<String>) _key;
-        List<String> records = (List<String>) _value;
+        String key = (String) _key;
+        JsonArray records = (JsonArray) _value;
+
+
 
         if (records == null || records.size() == 0) {
             logger.warn("skipping processing, null records for key: {}", key);
             return;
         }
 
+        try {
+            logger.info(key);
+            logger.info(_value.toString());
+            logger.info(records.toString());
+            logger.info(String.valueOf(records.size()));
+        } catch (Exception ex) {
+            logger.info(String.valueOf(ex));
+        }
+
         String bpmn;
         String tenantName;
-        String first = records.get(0);
+        String first = String.valueOf(records.get(0));
 
         DocumentContext sample = JsonPathReader.parse(first);
         try {
@@ -154,21 +174,20 @@ public class StreamsSetup {
             String flowType = getTypeForFlow(config);
 
             logger.debug("processing key: {}, records: {}", key, records);
+            Long workflowInstanceKey = sample.read("$.value.processInstanceKey");
+            String valueType = sample.read("$.valueType", String.class);
+            logger.debug("processing {} events", valueType);
 
             transactionTemplate.executeWithoutResult(status -> {
-                for (String record : records) {
+                for (JsonElement record : records) {
                     try {
-                        DocumentContext recordDocument = JsonPathReader.parse(record);
+                        DocumentContext recordDocument = JsonPathReader.parse(String.valueOf(record));
                         if (analyticsConfig.enableEventsTimestampsDump.equals("true")) {
                             logToTimestampsTable(recordDocument);
                         }
                         logger.debug("from kafka: {}", recordDocument.jsonString());
 
-                        String valueType = recordDocument.read("$.valueType", String.class);
-                        logger.debug("processing {} event", valueType);
-
                         Long workflowKey = recordDocument.read("$.value.processDefinitionKey");
-                        Long workflowInstanceKey = recordDocument.read("$.value.processInstanceKey");
                         Long timestamp = recordDocument.read("$.timestamp");
                         String bpmnElementType = recordDocument.read("$.value.bpmnElementType");
                         String elementId = recordDocument.read("$.value.elementId");
@@ -185,7 +204,7 @@ public class StreamsSetup {
                             }
 
                             case "VARIABLE" -> {
-                                yield recordParser.processVariable(recordDocument, bpmn, workflowInstanceKey, workflowKey, timestamp, flowType, sample);
+                                  yield recordParser.processVariables(records, bpmn, workflowInstanceKey, workflowKey, flowType, sample);
                             }
 
                             case "INCIDENT" -> {
@@ -205,6 +224,10 @@ public class StreamsSetup {
                                     throw new IllegalStateException("Unexpected entity type: " + entity.getClass());
                                 }
                             });
+                        }
+
+                        if (valueType.equals("VARIABLE")) {
+                            break;
                         }
                     } catch (Exception e) {
                         logger.error("failed to parse record: {}", record, e);
@@ -258,5 +281,12 @@ public class StreamsSetup {
         }catch (Exception e) {
             logger.debug(e.getMessage().toString() + " Error parsing record");
         }
+    }
+
+    private String extractCompositeKey(String value) {
+        DocumentContext documentContext = JsonPathReader.parse(value);
+        String workflowInstanceKey = documentContext.read("value.processInstanceKey").toString();
+        String recordType = documentContext.read("valueType").toString();
+        return workflowInstanceKey + "|" + recordType;
     }
 }
