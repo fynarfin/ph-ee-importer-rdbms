@@ -109,7 +109,7 @@ public class StreamsSetup {
 
         streamsBuilder.stream(kafkaTopic, Consumed.with(STRING_SERDE, STRING_SERDE))
                 .groupBy((key, value) -> extractCompositeKey(value))
-                .windowedBy(TimeWindows.of(Duration.ofMillis(100)).grace(Duration.ofMillis(100)))
+                .windowedBy(TimeWindows.of(Duration.ofMillis(300)).grace(Duration.ofMillis(100)))
                 .aggregate(
                     JsonArray::new,
                     (key, value, aggregate) -> {
@@ -131,21 +131,13 @@ public class StreamsSetup {
         String key = (String) _key;
         JsonArray records = (JsonArray) _value;
 
-
-
         if (records == null || records.size() == 0) {
             logger.warn("skipping processing, null records for key: {}", key);
             return;
         }
 
-        try {
-            logger.info(key);
-            logger.info(_value.toString());
-            logger.info(records.toString());
-            logger.info(String.valueOf(records.size()));
-        } catch (Exception ex) {
-            logger.info(String.valueOf(ex));
-        }
+        logger.debug(key);
+        logger.debug(String.valueOf(records.size()));
 
         String bpmn;
         String tenantName;
