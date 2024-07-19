@@ -99,15 +99,9 @@ public class StreamsSetup {
     @PostConstruct
     public void setup() {
         logger.debug("## setting up kafka streams on topic `{}`, aggregating every {} seconds", kafkaTopic, aggregationWindowSeconds);
-        Aggregator<String, String, List<String>> aggregator = (key, value, aggregate) -> {
-            aggregate.add(value);
-            return aggregate;
-        };
-        Merger<String, List<String>> merger = (key, first, second) -> Stream.of(first, second)
-                .flatMap(Collection::stream)
-                .collect(Collectors.toList());
 
         streamsBuilder.stream(kafkaTopic, Consumed.with(STRING_SERDE, STRING_SERDE))
+                .filter((key, value) -> !shouldFilterOut(value))
                 .groupBy((key, value) -> extractCompositeKey(value))
                 .windowedBy(TimeWindows.of(Duration.ofMillis(300)).grace(Duration.ofMillis(100)))
                 .aggregate(
@@ -280,5 +274,14 @@ public class StreamsSetup {
         String workflowInstanceKey = documentContext.read("value.processInstanceKey").toString();
         String recordType = documentContext.read("valueType").toString();
         return workflowInstanceKey + "|" + recordType;
+    }
+
+    private boolean shouldFilterOut(String value) {
+        DocumentContext documentContext = JsonPathReader.parse(value);
+        String valueType = documentContext.read("valueType").toString();
+        String intent = documentContext.read("$.intent", String.class);
+
+        // Add the condition to filter out specific value types
+        return "PROCESS_INSTANCE".equals(valueType) && !("START_EVENT".equals(intent) || "END_EVENT".equals(intent)); // Replace "specificValueType" with the actual value type you want to filter out
     }
 }
