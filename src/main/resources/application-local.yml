@@ -1316,27 +1316,35 @@ transfer:
       direction: INCOMING
       type: TRANSACTION-REQUEST
       transformers:
-        - field: transactionId
-          variableName: transactionId
-        - field: clientCorrelationId
-          variableName: clientCorrelationId
         - field: amount
           variableName: channelRequest
-          jsonPath: $.amount
+          jsonPath: $.amount.amount
         - field: currency
           variableName: channelRequest
-          jsonPath: $.currency
-        - field: payerPartyIdType
-          variableName: channelRequest
-          jsonPath: $.payer[0].partyIdType
-        - field: payerPartyId
-          variableName: channelRequest
-          jsonPath: $.payer[0].partyIdIdentifier
+          jsonPath: $.amount.currency
         - field: payeePartyIdType
           variableName: channelRequest
-          jsonPath: $.payee[0].partyIdType
+          jsonPath: $.payee.partyIdInfo.partyIdType
         - field: payeePartyId
           variableName: channelRequest
-          jsonPath: $.payee[0].partyIdIdentifier
+          jsonPath: $.payee.partyIdInfo.partyIdentifier
+        - field: payerPartyIdType
+          variableName: channelRequest
+          jsonPath: $.payer.partyIdInfo.partyIdType
+        - field: payerPartyId
+          variableName: channelRequest
+          jsonPath: $.payer.partyIdInfo.partyIdentifier
+        - field: transactionId
+          variableName: transactionId
+        - field: currency
+          variableName: currency
+        - field: batchId
+          variableName: batchId
+        - field: tenantId
+          variableName: tenantId
+        - field: errorInformation
+          variableName: errorInformation
+        - field: clientCorrelationId
+          variableName: clientCorrelationId
 
 
