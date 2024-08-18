@@ -384,6 +384,25 @@ transfer:
         - field: payeePartyId
           variableName: channelRequest
           jsonPath: $.payee[0].partyIdIdentifier
+    - name: airtel_flow_mifos
+      direction: INCOMING
+      type: TRANSACTION-REQUEST
+      transformers:
+        - field: transactionId
+          variableName: transactionId
+        - field: clientCorrelationId
+          variableName: clientCorrelationId
+        - field: externalId
+          variable-name: externalTransactionId
+        - field: amount
+          variableName: channelRequest
+          jsonPath: $.amount
+        - field: currency
+          variableName: currency
+        - field: payerPartyIdType
+          variableName: partyIdType
+        - field: payerPartyId
+          variableName: phoneNumber
     - name: minimal_mock_transfer_request
       direction: OUTGOING
       type: TRANSACTION-REQUEST
