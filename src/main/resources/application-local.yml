@@ -1346,5 +1346,19 @@ transfer:
           variableName: errorInformation
         - field: clientCorrelationId
           variableName: clientCorrelationId
+    - name: airtel_flow_mifos
+      direction: INCOMING
+      type: TRANSACTION-REQUEST
+      transformers:
+        - field: transactionId
+          variableName: transactionId
+        - field: clientCorrelationId
+          variableName: clientCorrelationId
+        - field: currency
+          variableName: currency
+        - field: payerPartyIdType
+          variableName: partyIdType
+        - field: payerPartyId
+          variableName: phoneNumber
 
 
