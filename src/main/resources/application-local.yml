@@ -1312,5 +1312,31 @@ transfer:
           variableName: payerPartyId
         - field: errorInformation
           variableName: errorInformation
+    - name: mtn_payee_transaction_request
+      direction: INCOMING
+      type: TRANSACTION-REQUEST
+      transformers:
+        - field: transactionId
+          variableName: transactionId
+        - field: clientCorrelationId
+          variableName: clientCorrelationId
+        - field: amount
+          variableName: channelRequest
+          jsonPath: $.amount
+        - field: currency
+          variableName: channelRequest
+          jsonPath: $.currency
+        - field: payerPartyIdType
+          variableName: channelRequest
+          jsonPath: $.payer[0].partyIdType
+        - field: payerPartyId
+          variableName: channelRequest
+          jsonPath: $.payer[0].partyIdIdentifier
+        - field: payeePartyIdType
+          variableName: channelRequest
+          jsonPath: $.payee[0].partyIdType
+        - field: payeePartyId
+          variableName: channelRequest
+          jsonPath: $.payee[0].partyIdIdentifier
 
 
